@@ -1,0 +1,84 @@
+﻿@page "/products"
+@inject MongoProductService MongoService
+
+<h3>Add Product to MongoDB</h3>
+
+<div>
+    <input @bind="newProductName" placeholder="Name" />
+    <input @bind="priceInput" placeholder="Price (ex: 12.99)" />
+    <button @onclick="AddToMongo">Add</button>
+</div>
+
+<p style="color: green">@debugMessage</p>
+
+@if (mongoProducts == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!mongoProducts.Any())
+{
+    <p>No products found.</p>
+}
+else
+{
+    <ul>
+        @foreach (var product in mongoProducts)
+        {
+            <li>@product.Name - @product.Price</li>
+        }
+    </ul>
+}
+
+@code {
+    private string newProductName;
+    private string priceInput;
+    private decimal newProductPrice;
+    private string debugMessage;
+    private List<Product> mongoProducts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        debugMessage = "🔄 Loading products from MongoDB...";
+        try
+        {
+            mongoProducts = await MongoService.GetAllAsync();
+            debugMessage = "✅ Products loaded.";
+        }
+        catch (Exception ex)
+        {
+            debugMessage = $"❌ Error loading products: {ex.Message}";
+        }
+    }
+    private async Task AddToMongo()
+    {
+        debugMessage = $"🚀 AddToMongo CALLED (Name = {newProductName}, Price = {priceInput})";
+
+        if (!string.IsNullOrWhiteSpace(newProductName) && decimal.TryParse(priceInput, out newProductPrice))
+        {
+            try
+            {
+                var product = new Product
+                {
+                    Id = Guid.NewGuid(),
+                    Name = newProductName,
+                    Price = newProductPrice
+                };
+
+                await MongoService.CreateAsync(product);
+                mongoProducts = await MongoService.GetAllAsync();
+
+                newProductName = string.Empty;
+                priceInput = string.Empty;
+                debugMessage = "✅ Product added to MongoDB.";
+            }
+            catch (Exception ex)
+            {
+                debugMessage = $"❌ Error: {ex.Message}";
+            }
+        }
+        else
+        {
+            debugMessage = "⚠️ Invalid input. Please enter a name and a valid price.";
+        }
+    }
+}
